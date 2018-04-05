@@ -1,0 +1,41 @@
+[package]
+name = "spbtle-rf-stm32f303re-test"
+version = "0.0.1"
+authors = ["Daniel Gallagher <pdanielgallagher@gmail.com>"]
+
+[profile.dev]
+codegen-units = 1
+incremental = false
+
+[profile.release]
+lto = true
+debug = true
+
+[dependencies]
+cortex-m-semihosting = "*"
+embedded-hal = "*"
+bluenrg = { path = "../bluenrg" }
+ble = { path = "../ble" }
+nb = "*"
+
+[dependencies.cortex-m]
+version = "*"
+features = ["cm7-r0p1"]
+
+[dependencies.cortex-m-rt]
+version= "*"
+features = ["abort-on-panic"]
+
+[dependencies.stm32f30x]
+version = "*"
+features = ["rt"]
+
+[dependencies.stm32f30x-hal]
+path = "../stm32f30x-hal"
+features = ["rt", "unproven"]
+
+[target]
+
+[target.thumbv7em-none-eabihf]
+
+[target.thumbv7em-none-eabihf.dependencies]
