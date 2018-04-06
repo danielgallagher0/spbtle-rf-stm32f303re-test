@@ -1,11 +1,11 @@
 #![no_std]
 
+extern crate ble;
+extern crate bluenrg;
 extern crate cortex_m;
 extern crate cortex_m_rt;
 extern crate cortex_m_semihosting;
 extern crate embedded_hal;
-extern crate ble;
-extern crate bluenrg;
 #[macro_use(block)]
 extern crate nb;
 extern crate stm32f30x;
@@ -25,22 +25,30 @@ use embedded_hal::timer::CountDown;
 fn print_event<Out: Write>(out: &mut Out, event: ble::Event) {
     match event {
         ble::Event::CommandComplete(cmd) => {
-            writeln!(out, "Command complete; space left for {} packets", cmd.num_hci_command_packets).unwrap();
+            writeln!(
+                out,
+                "Command complete; space left for {} packets",
+                cmd.num_hci_command_packets
+            ).unwrap();
             match cmd.return_params {
-                ble::ReturnParameters::None => (),
-                ble::ReturnParameters::ReadLocalVersion(v) => {
+                ble::event::command::ReturnParameters::None => (),
+                ble::event::command::ReturnParameters::ReadLocalVersion(v) => {
                     writeln!(out, "  hci_version = {}", v.hci_version).unwrap();
                     writeln!(out, "  hci_revision = {}", v.hci_revision).unwrap();
                     writeln!(out, "  lmp_version = {}", v.lmp_version).unwrap();
                     writeln!(out, "  manufacturer_name = {}", v.manufacturer_name).unwrap();
                     writeln!(out, "  lmp_subversion = {}", v.lmp_subversion).unwrap();
 
-                    let exploded = v.bluenrg_version();
-                    writeln!(out, "  HW Version = {}", exploded.hw_version).unwrap();
-                    writeln!(out, "  FW Version = {}.{}.{}", exploded.major, exploded.minor, exploded.patch).unwrap();
+                    let bnrg = v.bluenrg_version();
+                    writeln!(out, "  HW Version = {}", bnrg.hw_version).unwrap();
+                    writeln!(
+                        out,
+                        "  FW Version = {}.{}.{}",
+                        bnrg.major, bnrg.minor, bnrg.patch
+                    ).unwrap();
                 }
             }
-        },
+        }
     }
 }
 
@@ -70,11 +78,18 @@ fn main() {
             },
             1.mhz(),
             clocks,
-            &mut rcc.apb2);
+            &mut rcc.apb2,
+        );
 
-        let data_ready = gpioa.pa0.into_pull_down_input(&mut gpioa.moder, &mut gpioa.pupdr);
-        let chip_select = gpioa.pa1.into_open_drain_output(&mut gpioa.moder, &mut gpioa.otyper);
-        let mut pa8 = gpioa.pa8.into_open_drain_output(&mut gpioa.moder, &mut gpioa.otyper);
+        let data_ready = gpioa
+            .pa0
+            .into_pull_down_input(&mut gpioa.moder, &mut gpioa.pupdr);
+        let chip_select = gpioa
+            .pa1
+            .into_open_drain_output(&mut gpioa.moder, &mut gpioa.otyper);
+        let mut pa8 = gpioa
+            .pa8
+            .into_open_drain_output(&mut gpioa.moder, &mut gpioa.otyper);
         let mut tim6 = hal::timer::Timer::tim6(peripherals.TIM6, 200.hz(), clocks, &mut rcc.apb1);
         let mut rx_buffer: [u8; 128] = [0; 128];
         let mut bnrg = bluenrg::BlueNRG::new(&mut rx_buffer, chip_select, data_ready, &mut || {
