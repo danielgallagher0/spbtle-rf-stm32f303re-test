@@ -14,8 +14,8 @@ debug = true
 [dependencies]
 cortex-m-semihosting = "*"
 embedded-hal = "*"
-bluenrg = { path = "../bluenrg" }
-ble = { path = "../ble" }
+bluenrg = { git = "https://github.com/danielgallagher0/bluenrg" }
+ble = { git = "https://github.com/danielgallagher0/ble-rs" }
 nb = "*"
 
 [dependencies.cortex-m]
@@ -31,8 +31,13 @@ version = "*"
 features = ["rt"]
 
 [dependencies.stm32f30x-hal]
-path = "../stm32f30x-hal"
+version = "0.1.1"
 features = ["rt", "unproven"]
+
+# Use a version of stm32f30x-hal where the GPIOs implement
+# embedded-hal's unproven InputPin trait.
+[patch.crates-io]
+stm32f30x-hal = { git = "https://github.com/octycs/stm32f30x-hal" }
 
 [target]
 

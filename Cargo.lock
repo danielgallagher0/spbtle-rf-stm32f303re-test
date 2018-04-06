@@ -11,6 +11,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "ble"
 version = "0.0.1"
+source = "git+https://github.com/danielgallagher0/ble-rs#a12c2a0007194bad8363b4f2fb0ced50a39a5ad6"
 dependencies = [
  "nb 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -18,8 +19,9 @@ dependencies = [
 [[package]]
 name = "bluenrg"
 version = "0.0.1"
+source = "git+https://github.com/danielgallagher0/bluenrg#f7ba8327ce4f4a7eb6a49fb6f55a5660490f9579"
 dependencies = [
- "ble 0.0.1",
+ "ble 0.0.1 (git+https://github.com/danielgallagher0/ble-rs)",
  "embedded-hal 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "nb 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -142,15 +144,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "spbtle-rf-stm32f303re-test"
 version = "0.0.1"
 dependencies = [
- "ble 0.0.1",
- "bluenrg 0.0.1",
+ "ble 0.0.1 (git+https://github.com/danielgallagher0/ble-rs)",
+ "bluenrg 0.0.1 (git+https://github.com/danielgallagher0/bluenrg)",
  "cortex-m 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "cortex-m-rt 0.3.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "cortex-m-semihosting 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "embedded-hal 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "nb 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "stm32f30x 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "stm32f30x-hal 0.1.2",
+ "stm32f30x-hal 0.1.2 (git+https://github.com/octycs/stm32f30x-hal)",
 ]
 
 [[package]]
@@ -167,6 +169,7 @@ dependencies = [
 [[package]]
 name = "stm32f30x-hal"
 version = "0.1.2"
+source = "git+https://github.com/octycs/stm32f30x-hal#0f4786242c37d75cc9f962571cc08d535bc866e4"
 dependencies = [
  "cast 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "cortex-m 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -225,6 +228,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [metadata]
 "checksum aligned 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "d1a92995cea48691c7c93e12597cca4d692bb3130d0a291c7141b9793c7829e7"
 "checksum bare-metal 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "aacbba24771a81cfe18f5aedd5bf3208ca8324ecdd9344ddb61f8d2a051a4574"
+"checksum ble 0.0.1 (git+https://github.com/danielgallagher0/ble-rs)" = "<none>"
+"checksum bluenrg 0.0.1 (git+https://github.com/danielgallagher0/bluenrg)" = "<none>"
 "checksum cast 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "926013f2860c46252efceabb19f4a6b308197505082c609025aa6706c011d427"
 "checksum chrono 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)" = "ba5f60682a4c264e7f8d77b82e7788938a76befdf949d4a98026d19099c9d873"
 "checksum cortex-m 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "4d553ca1f23403c81e6d3d28a64ef6e8eadd7f395195aacda65cbc0dc987738e"
@@ -242,6 +247,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum semver 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)" = "1d7eb9ef2c18661902cc47e535f9bc51b78acd254da71d375c2f6720d9a40403"
 "checksum semver-parser 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)" = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
 "checksum stm32f30x 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)" = "6cf6f343d4af2ae3836e88bb74e3327cc64e8c81d34ce0d6587742541624f4f9"
+"checksum stm32f30x-hal 0.1.2 (git+https://github.com/octycs/stm32f30x-hal)" = "<none>"
 "checksum time 0.1.39 (registry+https://github.com/rust-lang/crates.io-index)" = "a15375f1df02096fb3317256ce2cee6a1f42fc84ea5ad5fc8c421cfe40c73098"
 "checksum untagged-option 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "89553f60895e868761e18120e72077da22920614562d2f4fe98fa707fbb12fe6"
 "checksum vcell 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "45c297f0afb6928cd08ab1ff9d95e99392595ea25ae1b5ecf822ff8764e57a0d"
