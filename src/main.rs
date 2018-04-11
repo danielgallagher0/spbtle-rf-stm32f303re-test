@@ -65,7 +65,8 @@ fn main() {
 
         let mut rcc = peripherals.RCC.constrain();
         let mut gpioa = peripherals.GPIOA.split(&mut rcc.ahb);
-        let sck = gpioa.pa5.into_af5(&mut gpioa.moder, &mut gpioa.afrl);
+        let mut gpiob = peripherals.GPIOB.split(&mut rcc.ahb);
+        let sck = gpiob.pb3.into_af5(&mut gpiob.moder, &mut gpiob.afrl);
         let miso = gpioa.pa6.into_af5(&mut gpioa.moder, &mut gpioa.afrl);
         let mosi = gpioa.pa7.into_af5(&mut gpioa.moder, &mut gpioa.afrl);
         let clocks = rcc.cfgr.freeze(&mut peripherals.FLASH.constrain().acr);
@@ -86,35 +87,27 @@ fn main() {
             .into_pull_down_input(&mut gpioa.moder, &mut gpioa.pupdr);
         let chip_select = gpioa
             .pa1
-            .into_open_drain_output(&mut gpioa.moder, &mut gpioa.otyper);
-        let mut pa8 = gpioa
+            .into_push_pull_output(&mut gpioa.moder, &mut gpioa.otyper);
+        let mut reset_pin = gpioa
             .pa8
-            .into_open_drain_output(&mut gpioa.moder, &mut gpioa.otyper);
+            .into_push_pull_output(&mut gpioa.moder, &mut gpioa.otyper);
         let mut tim6 = hal::timer::Timer::tim6(peripherals.TIM6, 200.hz(), clocks, &mut rcc.apb1);
         let mut rx_buffer: [u8; 128] = [0; 128];
+
         let mut bnrg = bluenrg::BlueNRG::new(&mut rx_buffer, chip_select, data_ready, &mut || {
-            pa8.set_high();
+            reset_pin.set_low();
             tim6.start(200.hz());
             block!(tim6.wait()).unwrap();
 
-            pa8.set_low();
+            reset_pin.set_high();
             tim6.start(200.hz());
             block!(tim6.wait()).unwrap();
         });
         tim6.free();
 
-        let mut stdout = hio::hstdout().unwrap();
         bnrg.with_spi(&mut spi, |controller| {
             block!(ble::hci::read_local_version_information(controller)).unwrap();
         });
-        // {
-        // Ok(local_version) => {
-        //     let version = local_version.bluenrg_version();
-        //   writeln!(stdout, "Version Info (HW/FW): {}/{}.{}.{}", version.hw_version,
-        //          version.major, version.minor, version.patch).unwrap();
-        //            },
-        //          Err(e) => writeln!(stdout, "Failed to get version: {:?}", e).unwrap(),
-        //    }
         // BlueNRG_RST()
         // getBlueNRGVersion(&hwVersion, &fwVersion);
         // BlueNRG_RST()
@@ -125,13 +118,18 @@ fn main() {
         // aci_gap_set_auth_requirement()
         // add services...
         // aci_hal_set_tx_power_level(1,4)
+        let mut stdout = hio::hstdout().unwrap();
         loop {
             match block!(bnrg.with_spi(&mut spi, |controller| controller.read())) {
-                Ok(e) => print_event(&mut stdout, e),
+                Ok(e) => {
+                    print_event(&mut stdout, e.clone());
+                    let ble::Event::CommandComplete(cmd) = e;
+                    if let ble::event::command::ReturnParameters::ReadLocalVersion(_) = cmd.return_params {
+                        cortex_m::asm::wfi();
+                    }
+                },
                 Err(e) => print_error(&mut stdout, e),
             }
-
-            cortex_m::asm::wfi();
         }
     });
 }
