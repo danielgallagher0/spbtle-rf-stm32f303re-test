@@ -35,9 +35,10 @@ version = "0.1.1"
 features = ["rt", "unproven"]
 
 # Use a version of stm32f30x-hal where the GPIOs implement
-# embedded-hal's unproven InputPin trait.
+# embedded-hal's unproven InputPin trait and the required GPIOs are
+# enabled in the HAL.
 [patch.crates-io]
-stm32f30x-hal = { git = "https://github.com/octycs/stm32f30x-hal" }
+stm32f30x-hal = { git = "https://github.com/danielgallagher0/stm32f30x-hal", branch = "spbtle-rf-support" }
 
 [target]
 
