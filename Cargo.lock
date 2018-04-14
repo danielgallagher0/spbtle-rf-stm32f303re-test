@@ -11,7 +11,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "ble"
 version = "0.0.1"
-source = "git+https://github.com/danielgallagher0/ble-rs#57a5d5bcbcd5dca8318c2ff80dc982c850661fa8"
+source = "git+https://github.com/danielgallagher0/ble-rs#4111776873bd4c00dc60aa6587f125464ff997c7"
 dependencies = [
  "nb 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -19,7 +19,7 @@ dependencies = [
 [[package]]
 name = "bluenrg"
 version = "0.0.1"
-source = "git+https://github.com/danielgallagher0/bluenrg#d2fce3828c6c1839d8d0d66120a3ad2dde410135"
+source = "git+https://github.com/danielgallagher0/bluenrg#3c728bbc53b0215589d2b59fb2dc9c04894f7689"
 dependencies = [
  "ble 0.0.1 (git+https://github.com/danielgallagher0/ble-rs)",
  "embedded-hal 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",

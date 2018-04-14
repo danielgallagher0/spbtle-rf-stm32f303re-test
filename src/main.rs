@@ -52,7 +52,7 @@ fn print_event<Out: Write>(out: &mut Out, event: ble::Event) {
     }
 }
 
-fn print_error<Out: Write, E: Debug>(out: &mut Out, error: bluenrg::Error<E>) {
+fn print_error<Out: Write, E: Debug>(out: &mut Out, error: E) {
     writeln!(out, "Error: {:?}", error).unwrap();
 }
 
@@ -106,7 +106,7 @@ fn main() {
         tim6.free();
 
         bnrg.with_spi(&mut spi, |controller| {
-            block!(ble::hci::read_local_version_information(controller)).unwrap();
+            block!(controller.read_local_version_information()).unwrap();
         });
         // BlueNRG_RST()
         // getBlueNRGVersion(&hwVersion, &fwVersion);
@@ -121,7 +121,8 @@ fn main() {
         let mut stdout = hio::hstdout().unwrap();
         loop {
             match block!(bnrg.with_spi(&mut spi, |controller| controller.read())) {
-                Ok(e) => {
+                Ok(p) => {
+                    let ble::hci::uart::Packet::Event(e) = p;
                     print_event(&mut stdout, e.clone());
                     let ble::Event::CommandComplete(cmd) = e;
                     if let ble::event::command::ReturnParameters::ReadLocalVersion(_) = cmd.return_params {
