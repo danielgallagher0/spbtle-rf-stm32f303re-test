@@ -15,12 +15,12 @@ use bluenrg::LocalVersionInfoExt;
 use core::fmt::Debug;
 use core::fmt::Write;
 use cortex_m_semihosting::hio;
-use hal::flash::FlashExt;
-use hal::rcc::RccExt;
-use hal::gpio::GpioExt;
-use hal::time::U32Ext;
 use embedded_hal::digital::OutputPin;
 use embedded_hal::timer::CountDown;
+use hal::flash::FlashExt;
+use hal::gpio::GpioExt;
+use hal::rcc::RccExt;
+use hal::time::U32Ext;
 
 fn print_event<Out: Write>(out: &mut Out, event: ble::Event) {
     match event {
@@ -48,6 +48,9 @@ fn print_event<Out: Write>(out: &mut Out, event: ble::Event) {
                     ).unwrap();
                 }
             }
+        }
+        ble::Event::CommandStatus(status) => {
+            writeln!(out, "Command status: {:?}", status).unwrap();
         }
     }
 }
@@ -124,11 +127,14 @@ fn main() {
                 Ok(p) => {
                     let ble::hci::uart::Packet::Event(e) = p;
                     print_event(&mut stdout, e.clone());
-                    let ble::Event::CommandComplete(cmd) = e;
-                    if let ble::event::command::ReturnParameters::ReadLocalVersion(_) = cmd.return_params {
-                        cortex_m::asm::wfi();
+                    if let ble::Event::CommandComplete(cmd) = e {
+                        if let ble::event::command::ReturnParameters::ReadLocalVersion(_) =
+                            cmd.return_params
+                        {
+                            cortex_m::asm::wfi();
+                        }
                     }
-                },
+                }
                 Err(e) => print_error(&mut stdout, e),
             }
         }
