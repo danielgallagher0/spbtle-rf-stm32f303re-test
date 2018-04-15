@@ -22,7 +22,7 @@ use hal::gpio::GpioExt;
 use hal::rcc::RccExt;
 use hal::time::U32Ext;
 
-fn print_event<Out: Write>(out: &mut Out, event: ble::Event) {
+fn print_event<Out: Write>(out: &mut Out, event: ble::Event<bluenrg::BlueNRGEvent>) {
     match event {
         ble::Event::CommandComplete(cmd) => {
             writeln!(
@@ -51,6 +51,9 @@ fn print_event<Out: Write>(out: &mut Out, event: ble::Event) {
         }
         ble::Event::CommandStatus(status) => {
             writeln!(out, "Command status: {:?}", status).unwrap();
+        }
+        ble::Event::Vendor(event) => {
+            writeln!(out, "Vendor event: {:?}", event).unwrap();
         }
     }
 }
