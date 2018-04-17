@@ -128,7 +128,7 @@ fn main() {
         loop {
             match block!(bnrg.with_spi(&mut spi, |controller| controller.read())) {
                 Ok(p) => {
-                    let ble::hci::uart::Packet::Event(e) = p;
+                    let ble::host::uart::Packet::Event(e) = p;
                     print_event(&mut stdout, e.clone());
                     if let ble::Event::CommandComplete(cmd) = e {
                         if let ble::event::command::ReturnParameters::ReadLocalVersion(_) =
