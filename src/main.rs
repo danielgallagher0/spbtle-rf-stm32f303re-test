@@ -1,7 +1,7 @@
 #![no_std]
 
-extern crate ble;
 extern crate bluenrg;
+extern crate bluetooth_hci as hci;
 extern crate cortex_m;
 extern crate cortex_m_rt;
 extern crate cortex_m_semihosting;
@@ -22,17 +22,17 @@ use hal::gpio::GpioExt;
 use hal::rcc::RccExt;
 use hal::time::U32Ext;
 
-fn print_event<Out: Write>(out: &mut Out, event: ble::Event<bluenrg::BlueNRGEvent>) {
+fn print_event<Out: Write>(out: &mut Out, event: hci::Event<bluenrg::BlueNRGEvent>) {
     match event {
-        ble::Event::CommandComplete(cmd) => {
+        hci::Event::CommandComplete(cmd) => {
             writeln!(
                 out,
                 "Command complete; space left for {} packets",
                 cmd.num_hci_command_packets
             ).unwrap();
             match cmd.return_params {
-                ble::event::command::ReturnParameters::None => (),
-                ble::event::command::ReturnParameters::ReadLocalVersion(v) => {
+                hci::event::command::ReturnParameters::None => (),
+                hci::event::command::ReturnParameters::ReadLocalVersion(v) => {
                     writeln!(out, "  hci_version = {}", v.hci_version).unwrap();
                     writeln!(out, "  hci_revision = {}", v.hci_revision).unwrap();
                     writeln!(out, "  lmp_version = {}", v.lmp_version).unwrap();
@@ -49,10 +49,10 @@ fn print_event<Out: Write>(out: &mut Out, event: ble::Event<bluenrg::BlueNRGEven
                 }
             }
         }
-        ble::Event::CommandStatus(status) => {
+        hci::Event::CommandStatus(status) => {
             writeln!(out, "Command status: {:?}", status).unwrap();
         }
-        ble::Event::Vendor(event) => {
+        hci::Event::Vendor(event) => {
             writeln!(out, "Vendor event: {:?}", event).unwrap();
         }
     }
@@ -128,10 +128,10 @@ fn main() {
         loop {
             match block!(bnrg.with_spi(&mut spi, |controller| controller.read())) {
                 Ok(p) => {
-                    let ble::host::uart::Packet::Event(e) = p;
+                    let hci::host::uart::Packet::Event(e) = p;
                     print_event(&mut stdout, e.clone());
-                    if let ble::Event::CommandComplete(cmd) = e {
-                        if let ble::event::command::ReturnParameters::ReadLocalVersion(_) =
+                    if let hci::Event::CommandComplete(cmd) = e {
+                        if let hci::event::command::ReturnParameters::ReadLocalVersion(_) =
                             cmd.return_params
                         {
                             cortex_m::asm::wfi();

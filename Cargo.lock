@@ -1,34 +1,46 @@
 [[package]]
 name = "aligned"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "bare-metal"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-
-[[package]]
-name = "ble"
-version = "0.0.1"
-source = "git+https://github.com/danielgallagher0/ble-rs#11cef13361ceb9f26bbcb83aa61937b666d77fed"
-dependencies = [
- "nb 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
-]
 
 [[package]]
 name = "bluenrg"
 version = "0.0.1"
-source = "git+https://github.com/danielgallagher0/bluenrg#ed1b72764ac58013ece8889ad6eabffd8f93be5f"
+source = "git+https://github.com/danielgallagher0/bluenrg#740399a5e7398bcdb2131e2de227a877271843cb"
 dependencies = [
- "ble 0.0.1 (git+https://github.com/danielgallagher0/ble-rs)",
+ "bluetooth-hci 0.0.1 (git+https://github.com/danielgallagher0/bluetooth-hci)",
+ "byteorder 1.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "embedded-hal 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "nb 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
+name = "bluetooth-hci"
+version = "0.0.1"
+source = "git+https://github.com/danielgallagher0/bluetooth-hci#6a3eedf88f8ea62ebfa6e5b3d4e4be959618a535"
+dependencies = [
+ "byteorder 1.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "nb 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "byteorder"
+version = "1.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
 name = "cast"
 version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "cc"
+version = "1.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
@@ -46,8 +58,8 @@ name = "cortex-m"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "aligned 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "bare-metal 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "aligned 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "bare-metal 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "volatile-register 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -56,8 +68,8 @@ name = "cortex-m"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "aligned 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "bare-metal 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "aligned 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "bare-metal 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "untagged-option 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "volatile-register 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -75,8 +87,11 @@ dependencies = [
 
 [[package]]
 name = "cortex-m-semihosting"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "cc 1.0.10 (registry+https://github.com/rust-lang/crates.io-index)",
+]
 
 [[package]]
 name = "embedded-hal"
@@ -144,11 +159,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "spbtle-rf-stm32f303re-test"
 version = "0.0.1"
 dependencies = [
- "ble 0.0.1 (git+https://github.com/danielgallagher0/ble-rs)",
  "bluenrg 0.0.1 (git+https://github.com/danielgallagher0/bluenrg)",
+ "bluetooth-hci 0.0.1 (git+https://github.com/danielgallagher0/bluetooth-hci)",
  "cortex-m 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "cortex-m-rt 0.3.15 (registry+https://github.com/rust-lang/crates.io-index)",
- "cortex-m-semihosting 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cortex-m-semihosting 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "embedded-hal 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "nb 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "stm32f30x 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -160,7 +175,7 @@ name = "stm32f30x"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "bare-metal 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "bare-metal 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "cortex-m 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "cortex-m-rt 0.3.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "vcell 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -226,16 +241,18 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [metadata]
-"checksum aligned 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "d1a92995cea48691c7c93e12597cca4d692bb3130d0a291c7141b9793c7829e7"
-"checksum bare-metal 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "aacbba24771a81cfe18f5aedd5bf3208ca8324ecdd9344ddb61f8d2a051a4574"
-"checksum ble 0.0.1 (git+https://github.com/danielgallagher0/ble-rs)" = "<none>"
+"checksum aligned 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "0211cd15e6a84c97c3815bd8808e499b490ca386cf9beaf1985f49d5e3ef0f38"
+"checksum bare-metal 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "eda0f54b2d49f18f3867a5e6d458299bb886db6e64c34d319d6b1aa0839ac31c"
 "checksum bluenrg 0.0.1 (git+https://github.com/danielgallagher0/bluenrg)" = "<none>"
+"checksum bluetooth-hci 0.0.1 (git+https://github.com/danielgallagher0/bluetooth-hci)" = "<none>"
+"checksum byteorder 1.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "73b5bdfe7ee3ad0b99c9801d58807a9dbc9e09196365b0203853b99889ab3c87"
 "checksum cast 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "926013f2860c46252efceabb19f4a6b308197505082c609025aa6706c011d427"
+"checksum cc 1.0.10 (registry+https://github.com/rust-lang/crates.io-index)" = "8b9d2900f78631a5876dc5d6c9033ede027253efcd33dd36b1309fc6cab97ee0"
 "checksum chrono 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)" = "1cce36c92cb605414e9b824f866f5babe0a0368e39ea07393b9b63cf3844c0e6"
 "checksum cortex-m 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "4d553ca1f23403c81e6d3d28a64ef6e8eadd7f395195aacda65cbc0dc987738e"
 "checksum cortex-m 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)" = "2864dd1e83344abe7a6192befbeb8cd88bf763cfc560e28680d5b06a8ce9b7f7"
 "checksum cortex-m-rt 0.3.15 (registry+https://github.com/rust-lang/crates.io-index)" = "49fc1f0cc2c89ab7355cb026b28df8138dbd02255674933015c54113c08ecf9a"
-"checksum cortex-m-semihosting 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "4a7a324a8c184dcd3d6bd44cb4f6f85c158de15a2a8e7cd7f550909213ce3de8"
+"checksum cortex-m-semihosting 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "540df145aaf56c1c34dbb08f213f0476fc09b9cff26aa431394727197a6b1e44"
 "checksum embedded-hal 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "684b1fa3196f78342296d04edc2a6e5d053729d1b64a819dcb072810d706e267"
 "checksum libc 0.2.40 (registry+https://github.com/rust-lang/crates.io-index)" = "6fd41f331ac7c5b8ac259b8bf82c75c0fb2e469bbf37d2becbba9a6a2221965b"
 "checksum nb 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "69f380b5fe9fab8c0d7a6a99cda23e2cc0463bedb2cbc3aada0813b98496ecdc"
