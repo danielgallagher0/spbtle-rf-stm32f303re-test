@@ -15,8 +15,6 @@ use bluenrg::LocalVersionInfoExt;
 use core::fmt::Debug;
 use core::fmt::Write;
 use cortex_m_semihosting::hio;
-use embedded_hal::digital::OutputPin;
-use embedded_hal::timer::CountDown;
 use hal::flash::FlashExt;
 use hal::gpio::GpioExt;
 use hal::rcc::RccExt;
@@ -94,21 +92,14 @@ fn main() {
         let chip_select = gpioa
             .pa1
             .into_push_pull_output(&mut gpioa.moder, &mut gpioa.otyper);
-        let mut reset_pin = gpioa
+        let reset_pin = gpioa
             .pa8
             .into_push_pull_output(&mut gpioa.moder, &mut gpioa.otyper);
         let mut tim6 = hal::timer::Timer::tim6(peripherals.TIM6, 200.hz(), clocks, &mut rcc.apb1);
         let mut rx_buffer: [u8; 128] = [0; 128];
 
-        let mut bnrg = bluenrg::BlueNRG::new(&mut rx_buffer, chip_select, data_ready, &mut || {
-            reset_pin.set_low();
-            tim6.start(200.hz());
-            block!(tim6.wait()).unwrap();
-
-            reset_pin.set_high();
-            tim6.start(200.hz());
-            block!(tim6.wait()).unwrap();
-        });
+        let mut bnrg = bluenrg::BlueNRG::new(&mut rx_buffer, chip_select, data_ready, reset_pin);
+        bnrg.reset(&mut tim6, 200.hz());
         tim6.free();
 
         bnrg.with_spi(&mut spi, |controller| {
