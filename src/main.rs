@@ -8,6 +8,7 @@ extern crate cortex_m_semihosting;
 extern crate embedded_hal;
 #[macro_use(block)]
 extern crate nb;
+extern crate panic_semihosting;
 extern crate stm32f30x;
 extern crate stm32f30x_hal as hal;
 

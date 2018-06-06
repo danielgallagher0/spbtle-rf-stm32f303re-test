@@ -12,6 +12,7 @@ lto = true
 debug = true
 
 [dependencies]
+panic-semihosting = "*"
 cortex-m-semihosting = "*"
 embedded-hal = "*"
 bluenrg = { git = "https://github.com/danielgallagher0/bluenrg" }
@@ -24,14 +25,13 @@ features = ["cm7-r0p1"]
 
 [dependencies.cortex-m-rt]
 version= "*"
-features = ["abort-on-panic"]
 
 [dependencies.stm32f30x]
 version = "*"
 features = ["rt"]
 
 [dependencies.stm32f30x-hal]
-version = "0.1.1"
+version = "*"
 features = ["rt", "unproven"]
 
 # Use a version of stm32f30x-hal where the GPIOs implement
