@@ -39,9 +39,3 @@ features = ["rt", "unproven"]
 # enabled in the HAL.
 [patch.crates-io]
 stm32f30x-hal = { git = "https://github.com/danielgallagher0/stm32f30x-hal", branch = "spbtle-rf-support" }
-
-[target]
-
-[target.thumbv7em-none-eabihf]
-
-[target.thumbv7em-none-eabihf.dependencies]

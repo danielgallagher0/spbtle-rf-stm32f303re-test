@@ -1,4 +1,6 @@
 #![no_std]
+#![feature(lang_items)]
+#![feature(start)]
 
 extern crate bluenrg;
 extern crate bluetooth_hci as hci;
@@ -20,8 +22,10 @@ use hal::flash::FlashExt;
 use hal::gpio::GpioExt;
 use hal::rcc::RccExt;
 use hal::time::U32Ext;
+use hci::host::uart::Hci;
+use hci::host::Hci as Host;
 
-fn print_event<Out: Write>(out: &mut Out, event: hci::Event<bluenrg::BlueNRGEvent>) {
+fn print_event<Out: Write>(out: &mut Out, event: hci::Event<bluenrg::event::BlueNRGEvent>) {
     match event {
         hci::Event::CommandComplete(cmd) => {
             writeln!(
@@ -30,8 +34,7 @@ fn print_event<Out: Write>(out: &mut Out, event: hci::Event<bluenrg::BlueNRGEven
                 cmd.num_hci_command_packets
             ).unwrap();
             match cmd.return_params {
-                hci::event::command::ReturnParameters::None => (),
-                hci::event::command::ReturnParameters::ReadLocalVersion(v) => {
+                hci::event::command::ReturnParameters::ReadLocalVersionInformation(v) => {
                     writeln!(out, "  hci_version = {}", v.hci_version).unwrap();
                     writeln!(out, "  hci_revision = {}", v.hci_revision).unwrap();
                     writeln!(out, "  lmp_version = {}", v.lmp_version).unwrap();
@@ -46,6 +49,7 @@ fn print_event<Out: Write>(out: &mut Out, event: hci::Event<bluenrg::BlueNRGEven
                         bnrg.major, bnrg.minor, bnrg.patch
                     ).unwrap();
                 }
+                _ => (),
             }
         }
         hci::Event::CommandStatus(status) => {
@@ -54,6 +58,7 @@ fn print_event<Out: Write>(out: &mut Out, event: hci::Event<bluenrg::BlueNRGEven
         hci::Event::Vendor(event) => {
             writeln!(out, "Vendor event: {:?}", event).unwrap();
         }
+        _ => (),
     }
 }
 
@@ -61,8 +66,9 @@ fn print_error<Out: Write, E: Debug>(out: &mut Out, error: E) {
     writeln!(out, "Error: {:?}", error).unwrap();
 }
 
+#[start]
 #[inline(never)]
-fn main() {
+fn main(_argc: isize, _argv: *const *const u8) -> isize {
     cortex_m::interrupt::free(|_cs| {
         // Enable I2C1
         let peripherals = stm32f30x::Peripherals::take().unwrap();
@@ -123,8 +129,9 @@ fn main() {
                     let hci::host::uart::Packet::Event(e) = p;
                     print_event(&mut stdout, e.clone());
                     if let hci::Event::CommandComplete(cmd) = e {
-                        if let hci::event::command::ReturnParameters::ReadLocalVersion(_) =
-                            cmd.return_params
+                        if let hci::event::command::ReturnParameters::ReadLocalVersionInformation(
+                            _,
+                        ) = cmd.return_params
                         {
                             cortex_m::asm::wfi();
                         }
@@ -134,4 +141,9 @@ fn main() {
             }
         }
     });
+
+    1 // should not be here, so let's return failure.
 }
+
+#[lang = "eh_personality"]
+extern "C" fn eh_personality() {}
