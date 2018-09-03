@@ -66,6 +66,26 @@ const LED_CHARACTERISTIC_UUID: bluenrg::gatt::Uuid = bluenrg::gatt::Uuid::Uuid12
     0x0c, 0x36, 0x6e, 0x80, 0xcf, 0x3a, 0x11, 0xe1, 0x9a, 0xb4, 0x00, 0x02, 0xa5, 0xd5, 0xc5, 0x1b,
 ]);
 
+macro_rules! must {
+    ($expr:expr) => {
+        match $expr {
+            Ok(e) => e,
+            Err(_) => loop {
+                cortex_m::asm::wfi()
+            },
+        }
+    };
+}
+
+fn must_succeed(s: &hci::Status) {
+    match s {
+        &hci::Status::Success => (),
+        _ => loop {
+            cortex_m::asm::wfi()
+        },
+    }
+}
+
 fn print_event<Out: Write>(out: &mut Out, event: hci::Event<bluenrg::event::BlueNRGEvent>) {
     match event {
         hci::Event::CommandComplete(cmd) => {
@@ -90,15 +110,19 @@ fn print_event<Out: Write>(out: &mut Out, event: hci::Event<bluenrg::event::Blue
                         bnrg.major, bnrg.minor, bnrg.patch
                     ).unwrap();
                 }
+                // _p => writeln!(out, "other command complete").unwrap(),
                 p => writeln!(out, "{:?}", p).unwrap(),
             }
         }
         e => writeln!(out, "{:?}", e).unwrap(),
+        // _ => writeln!(out, "other event").unwrap(),
     }
 }
 
 fn print_error<Out: Write, E: Debug>(out: &mut Out, error: E) {
     writeln!(out, "Error: {:?}", error).unwrap();
+    // writeln!(out, "error").unwrap();
+    loop {}
 }
 
 pub struct EventLoop<'a> {
@@ -113,11 +137,13 @@ impl<'a> EventLoop<'a> {
         spi: Spi,
     ) -> EventLoop<'a> {
         EventLoop {
-            state: State::Initializing,
+            state: State::GettingVersionInfo,
             data: ProgramState {
                 bnrg: bnrg,
                 tim6: tim6,
                 spi: spi,
+
+                fw_version: None,
 
                 gap_service_handle: None,
                 dev_name_handle: None,
@@ -165,6 +191,8 @@ struct ProgramState<'a> {
     tim6: hal::timer::Timer<stm32f30x::TIM6>,
     spi: Spi,
 
+    fw_version: Option<bluenrg::Version>,
+
     gap_service_handle: Option<bluenrg::gatt::ServiceHandle>,
     dev_name_handle: Option<bluenrg::gatt::CharacteristicHandle>,
     appearance_handle: Option<bluenrg::gatt::CharacteristicHandle>,
@@ -182,7 +210,8 @@ struct ProgramState<'a> {
 
 #[derive(Copy, Clone)]
 enum State {
-    Initializing,
+    GettingVersionInfo,
+    Resetting,
     SettingAddress,
     InitGatt,
     InitGap,
@@ -210,21 +239,20 @@ enum State {
 impl State {
     fn act<'a>(&self, ps: &mut ProgramState<'a>) {
         match self {
-            &State::Initializing => {
+            &State::GettingVersionInfo => {
                 ps.bnrg.with_spi(&mut ps.spi, |c| {
                     block!(c.read_local_version_information()).unwrap()
                 });
             }
-            &State::SettingAddress => {
+            &State::Resetting => {
                 ps.bnrg.reset(&mut ps.tim6, 200.hz());
+            }
+            &State::SettingAddress => {
                 ps.bnrg.with_spi(&mut ps.spi, |c| {
-                    block!(
-                        c.write_config_data(
-                            &bluenrg::hal::ConfigData::public_address(hci::BdAddr([
-                                0x12, 0x34, 0x00, 0xE1, 0x80, 0x02,
-                            ])).build(),
-                        )
-                    ).unwrap()
+                    let config = bluenrg::hal::ConfigData::public_address(hci::BdAddr([
+                        0x12, 0x34, 0x00, 0xE1, 0x80, 0x02,
+                    ])).build();
+                    block!(c.write_config_data(&config)).unwrap()
                 });
             }
             &State::InitGatt => ps.bnrg.with_spi(&mut ps.spi, |c| {
@@ -249,7 +277,7 @@ impl State {
                             offset: 0,
                             value: b"BlueNRG",
                         }
-                    )).unwrap();
+                    ));
                 })
             }
             &State::SetAuthenticationRequirement => ps.bnrg.with_spi(&mut ps.spi, |c| {
@@ -261,17 +289,18 @@ impl State {
                         fixed_pin: bluenrg::gap::Pin::Fixed(123456),
                         bonding_required: true,
                     }
-                )).unwrap()
+                ));
             }),
             &State::AddAccService => ps.bnrg.with_spi(&mut ps.spi, |c| {
                 block!(c.add_service(&bluenrg::gatt::AddServiceParameters {
                     uuid: ACC_SERVICE_UUID,
                     service_type: bluenrg::gatt::ServiceType::Primary,
                     max_attribute_records: 7,
-                })).unwrap();
+                }));
             }),
             &State::AddAccFreeFallCharacteristic => {
                 let acc_service_handle = ps.acc_service_handle.unwrap();
+                let fw_version = ps.fw_version.clone().unwrap();
                 ps.bnrg.with_spi(&mut ps.spi, |c| {
                     block!(
                         c.add_characteristic(&bluenrg::gatt::AddCharacteristicParameters {
@@ -282,15 +311,19 @@ impl State {
                                 bluenrg::gatt::CharacteristicProperty::NOTIFY,
                             security_permissions: bluenrg::gatt::CharacteristicPermission::empty(),
                             gatt_event_mask: bluenrg::gatt::CharacteristicEvent::empty(),
-                            encryption_key_size: bluenrg::gatt::EncryptionKeySize::with_value(16)
-                                .unwrap(),
+                            encryption_key_size: must!(
+                                bluenrg::gatt::EncryptionKeySize::with_value(16)
+                            ),
                             is_variable: false,
+                            fw_version_before_v72: fw_version.major < 7
+                                || (fw_version.major == 7 && fw_version.minor < 2)
                         })
-                    ).unwrap();
+                    );
                 });
             }
             &State::AddAccCharacteristic => {
                 let acc_service_handle = ps.acc_service_handle.unwrap();
+                let fw_version = ps.fw_version.clone().unwrap();
                 ps.bnrg.with_spi(&mut ps.spi, |c| {
                     block!(
                         c.add_characteristic(&bluenrg::gatt::AddCharacteristicParameters {
@@ -301,11 +334,14 @@ impl State {
                                 | bluenrg::gatt::CharacteristicProperty::READ,
                             security_permissions: bluenrg::gatt::CharacteristicPermission::empty(),
                             gatt_event_mask: bluenrg::gatt::CharacteristicEvent::CONFIRM_READ,
-                            encryption_key_size: bluenrg::gatt::EncryptionKeySize::with_value(16)
-                                .unwrap(),
+                            encryption_key_size: must!(
+                                bluenrg::gatt::EncryptionKeySize::with_value(16)
+                            ),
                             is_variable: false,
+                            fw_version_before_v72: fw_version.major < 7
+                                || (fw_version.major == 7 && fw_version.minor < 2)
                         })
-                    ).unwrap()
+                    );
                 });
             }
             &State::AddEnvironmentalSensorService => ps.bnrg.with_spi(&mut ps.spi, |c| {
@@ -313,10 +349,11 @@ impl State {
                     uuid: ENVIRONMENTAL_SENSOR_SERVICE_UUID,
                     service_type: bluenrg::gatt::ServiceType::Primary,
                     max_attribute_records: 10,
-                })).unwrap();
+                }));
             }),
             &State::AddTemperatureCharacteristic => {
                 let env_service_handle = ps.environmental_sensor_service_handle.unwrap();
+                let fw_version = ps.fw_version.clone().unwrap();
                 ps.bnrg.with_spi(&mut ps.spi, |c| {
                     block!(
                         c.add_characteristic(&bluenrg::gatt::AddCharacteristicParameters {
@@ -326,11 +363,14 @@ impl State {
                             characteristic_properties: bluenrg::gatt::CharacteristicProperty::READ,
                             security_permissions: bluenrg::gatt::CharacteristicPermission::empty(),
                             gatt_event_mask: bluenrg::gatt::CharacteristicEvent::CONFIRM_READ,
-                            encryption_key_size: bluenrg::gatt::EncryptionKeySize::with_value(16)
-                                .unwrap(),
+                            encryption_key_size: must!(
+                                bluenrg::gatt::EncryptionKeySize::with_value(16)
+                            ),
                             is_variable: false,
+                            fw_version_before_v72: fw_version.major < 7
+                                || (fw_version.major == 7 && fw_version.minor < 2)
                         })
-                    ).unwrap()
+                    );
                 });
             }
             &State::AddTemperatureCharacteristicDescriptor => {
@@ -348,15 +388,17 @@ impl State {
                             security_permissions: bluenrg::gatt::DescriptorPermission::empty(),
                             access_permissions: bluenrg::gatt::AccessPermission::READ,
                             gatt_event_mask: bluenrg::gatt::CharacteristicEvent::empty(),
-                            encryption_key_size:
-                                bluenrg::gatt::EncryptionKeySize::with_value(16).unwrap(),
+                            encryption_key_size: must!(
+                                bluenrg::gatt::EncryptionKeySize::with_value(16)
+                            ),
                             is_variable: false,
                         }
-                    )).unwrap();
+                    ));
                 });
             }
             &State::AddPressureCharacteristic => {
                 let env_service_handle = ps.environmental_sensor_service_handle.unwrap();
+                let fw_version = ps.fw_version.clone().unwrap();
                 ps.bnrg.with_spi(&mut ps.spi, |c| {
                     block!(
                         c.add_characteristic(&bluenrg::gatt::AddCharacteristicParameters {
@@ -366,11 +408,14 @@ impl State {
                             characteristic_properties: bluenrg::gatt::CharacteristicProperty::READ,
                             security_permissions: bluenrg::gatt::CharacteristicPermission::empty(),
                             gatt_event_mask: bluenrg::gatt::CharacteristicEvent::CONFIRM_READ,
-                            encryption_key_size: bluenrg::gatt::EncryptionKeySize::with_value(16)
-                                .unwrap(),
+                            encryption_key_size: must!(
+                                bluenrg::gatt::EncryptionKeySize::with_value(16)
+                            ),
                             is_variable: false,
+                            fw_version_before_v72: fw_version.major < 7
+                                || (fw_version.major == 7 && fw_version.minor < 2)
                         })
-                    ).unwrap()
+                    );
                 });
             }
             &State::AddPressureCharacteristicDescriptor => {
@@ -387,16 +432,18 @@ impl State {
                             security_permissions: bluenrg::gatt::DescriptorPermission::empty(),
                             access_permissions: bluenrg::gatt::AccessPermission::READ,
                             gatt_event_mask: bluenrg::gatt::CharacteristicEvent::empty(),
-                            encryption_key_size:
-                                bluenrg::gatt::EncryptionKeySize::with_value(16).unwrap(),
+                            encryption_key_size: must!(
+                                bluenrg::gatt::EncryptionKeySize::with_value(16)
+                            ),
                             is_variable: false,
                         }
-                    )).unwrap();
+                    ));
                 });
             }
             &State::AddHumidityCharacteristic => {
                 let environmental_sensor_service_handle =
                     ps.environmental_sensor_service_handle.unwrap();
+                let fw_version = ps.fw_version.clone().unwrap();
                 ps.bnrg.with_spi(&mut ps.spi, |c| {
                     block!(
                         c.add_characteristic(&bluenrg::gatt::AddCharacteristicParameters {
@@ -406,11 +453,14 @@ impl State {
                             characteristic_properties: bluenrg::gatt::CharacteristicProperty::READ,
                             security_permissions: bluenrg::gatt::CharacteristicPermission::empty(),
                             gatt_event_mask: bluenrg::gatt::CharacteristicEvent::CONFIRM_READ,
-                            encryption_key_size: bluenrg::gatt::EncryptionKeySize::with_value(16)
-                                .unwrap(),
+                            encryption_key_size: must!(
+                                bluenrg::gatt::EncryptionKeySize::with_value(16)
+                            ),
                             is_variable: false,
+                            fw_version_before_v72: fw_version.major < 7
+                                || (fw_version.major == 7 && fw_version.minor < 2)
                         })
-                    ).unwrap()
+                    );
                 });
             }
             &State::AddHumidityCharacteristicDescriptor => {
@@ -427,11 +477,12 @@ impl State {
                             security_permissions: bluenrg::gatt::DescriptorPermission::empty(),
                             access_permissions: bluenrg::gatt::AccessPermission::READ,
                             gatt_event_mask: bluenrg::gatt::CharacteristicEvent::empty(),
-                            encryption_key_size:
-                                bluenrg::gatt::EncryptionKeySize::with_value(16).unwrap(),
+                            encryption_key_size: must!(
+                                bluenrg::gatt::EncryptionKeySize::with_value(16)
+                            ),
                             is_variable: false,
                         }
-                    )).unwrap();
+                    ));
                 });
             }
             &State::AddTimeService => ps.bnrg.with_spi(&mut ps.spi, |c| {
@@ -439,10 +490,11 @@ impl State {
                     uuid: TIME_SERVICE_UUID,
                     service_type: bluenrg::gatt::ServiceType::Primary,
                     max_attribute_records: 7,
-                })).unwrap();
+                }));
             }),
             &State::AddTimeCharacteristic => {
                 let time_service_handle = ps.time_service_handle.unwrap();
+                let fw_version = ps.fw_version.clone().unwrap();
                 ps.bnrg.with_spi(&mut ps.spi, |c| {
                     block!(
                         c.add_characteristic(&bluenrg::gatt::AddCharacteristicParameters {
@@ -452,15 +504,19 @@ impl State {
                             characteristic_properties: bluenrg::gatt::CharacteristicProperty::READ,
                             security_permissions: bluenrg::gatt::CharacteristicPermission::empty(),
                             gatt_event_mask: bluenrg::gatt::CharacteristicEvent::empty(),
-                            encryption_key_size: bluenrg::gatt::EncryptionKeySize::with_value(16)
-                                .unwrap(),
+                            encryption_key_size: must!(
+                                bluenrg::gatt::EncryptionKeySize::with_value(16)
+                            ),
                             is_variable: false,
+                            fw_version_before_v72: fw_version.major < 7
+                                || (fw_version.major == 7 && fw_version.minor < 2)
                         })
-                    ).unwrap()
+                    );
                 });
             }
             &State::AddMinuteCharacteristic => {
                 let time_service_handle = ps.time_service_handle.unwrap();
+                let fw_version = ps.fw_version.clone().unwrap();
                 ps.bnrg.with_spi(&mut ps.spi, |c| {
                     block!(
                         c.add_characteristic(&bluenrg::gatt::AddCharacteristicParameters {
@@ -471,11 +527,14 @@ impl State {
                                 | bluenrg::gatt::CharacteristicProperty::NOTIFY,
                             security_permissions: bluenrg::gatt::CharacteristicPermission::empty(),
                             gatt_event_mask: bluenrg::gatt::CharacteristicEvent::CONFIRM_READ,
-                            encryption_key_size: bluenrg::gatt::EncryptionKeySize::with_value(16)
-                                .unwrap(),
+                            encryption_key_size: must!(
+                                bluenrg::gatt::EncryptionKeySize::with_value(16)
+                            ),
                             is_variable: true,
+                            fw_version_before_v72: fw_version.major < 7
+                                || (fw_version.major == 7 && fw_version.minor < 2)
                         })
-                    ).unwrap()
+                    );
                 });
             }
             &State::AddLedService => ps.bnrg.with_spi(&mut ps.spi, |c| {
@@ -483,10 +542,11 @@ impl State {
                     uuid: LED_SERVICE_UUID,
                     service_type: bluenrg::gatt::ServiceType::Primary,
                     max_attribute_records: 7,
-                })).unwrap();
+                }));
             }),
             &State::AddLedCharacteristic => {
                 let led_service_handle = ps.led_service_handle.unwrap();
+                let fw_version = ps.fw_version.clone().unwrap();
                 ps.bnrg.with_spi(&mut ps.spi, |c| {
                     block!(
                         c.add_characteristic(&bluenrg::gatt::AddCharacteristicParameters {
@@ -497,15 +557,18 @@ impl State {
                                 | bluenrg::gatt::CharacteristicProperty::WRITE_WITHOUT_RESPONSE,
                             security_permissions: bluenrg::gatt::CharacteristicPermission::empty(),
                             gatt_event_mask: bluenrg::gatt::CharacteristicEvent::ATTRIBUTE_WRITE,
-                            encryption_key_size: bluenrg::gatt::EncryptionKeySize::with_value(16)
-                                .unwrap(),
+                            encryption_key_size: must!(
+                                bluenrg::gatt::EncryptionKeySize::with_value(16)
+                            ),
                             is_variable: true,
+                            fw_version_before_v72: fw_version.major < 7
+                                || (fw_version.major == 7 && fw_version.minor < 2)
                         })
-                    ).unwrap()
+                    );
                 });
             }
             &State::SetTxPowerLevel => ps.bnrg.with_spi(&mut ps.spi, |c| {
-                block!(c.set_tx_power_level(bluenrg::hal::PowerLevel::DbmNeg2_1)).unwrap()
+                block!(c.set_tx_power_level(bluenrg::hal::PowerLevel::DbmNeg2_1));
             }),
             &State::Complete => {
                 cortex_m::asm::wfi();
@@ -534,21 +597,29 @@ impl State {
         event: hci::event::Event<bluenrg::event::BlueNRGEvent>,
     ) -> Self {
         match self {
-            &State::Initializing => {
+            &State::GettingVersionInfo => {
                 if let hci::Event::CommandComplete(cmd) = event {
-                    if let hci::event::command::ReturnParameters::ReadLocalVersionInformation(_) =
+                    if let hci::event::command::ReturnParameters::ReadLocalVersionInformation(p) =
                         cmd.return_params
                     {
-                        return State::SettingAddress;
+                        must_succeed(&p.status);
+                        ps.fw_version = Some(p.bluenrg_version());
+                        return State::Resetting;
                     }
+                }
+            }
+            &State::Resetting => {
+                if let hci::Event::Vendor(bluenrg::event::BlueNRGEvent::HalInitialized(_)) = event {
+                    return State::SettingAddress;
                 }
             }
             &State::SettingAddress => {
                 if let hci::Event::CommandComplete(cmd) = event {
                     if let hci::event::command::ReturnParameters::Vendor(
-                        bluenrg::event::command::ReturnParameters::HalWriteConfigData(_),
+                        bluenrg::event::command::ReturnParameters::HalWriteConfigData(s),
                     ) = cmd.return_params
                     {
+                        must_succeed(&s);
                         return State::InitGatt;
                     }
                 }
@@ -556,9 +627,10 @@ impl State {
             &State::InitGatt => {
                 if let hci::Event::CommandComplete(cmd) = event {
                     if let hci::event::command::ReturnParameters::Vendor(
-                        bluenrg::event::command::ReturnParameters::GattInit(_),
+                        bluenrg::event::command::ReturnParameters::GattInit(s),
                     ) = cmd.return_params
                     {
+                        must_succeed(&s);
                         return State::InitGap;
                     }
                 }
@@ -569,6 +641,7 @@ impl State {
                         bluenrg::event::command::ReturnParameters::GapInit(params),
                     ) = cmd.return_params
                     {
+                        must_succeed(&params.status);
                         ps.gap_service_handle = Some(params.service_handle);
                         ps.dev_name_handle = Some(params.dev_name_handle);
                         ps.appearance_handle = Some(params.appearance_handle);
@@ -579,9 +652,10 @@ impl State {
             &State::SetDeviceName => {
                 if let hci::Event::CommandComplete(cmd) = event {
                     if let hci::event::command::ReturnParameters::Vendor(
-                        bluenrg::event::command::ReturnParameters::GattUpdateCharacteristicValue(_),
+                        bluenrg::event::command::ReturnParameters::GattUpdateCharacteristicValue(s),
                     ) = cmd.return_params
                     {
+                        must_succeed(&s);
                         return State::SetAuthenticationRequirement;
                     }
                 }
@@ -590,10 +664,11 @@ impl State {
                 if let hci::Event::CommandComplete(cmd) = event {
                     if let hci::event::command::ReturnParameters::Vendor(
                         bluenrg::event::command::ReturnParameters::GapSetAuthenticationRequirement(
-                            _,
+                            s,
                         ),
                     ) = cmd.return_params
                     {
+                        must_succeed(&s);
                         return State::AddAccService;
                     }
                 }
@@ -604,6 +679,7 @@ impl State {
                         bluenrg::event::command::ReturnParameters::GattAddService(params),
                     ) = cmd.return_params
                     {
+                        must_succeed(&params.status);
                         ps.acc_service_handle = Some(params.service_handle);
                         return State::AddAccFreeFallCharacteristic;
                     }
@@ -612,9 +688,10 @@ impl State {
             &State::AddAccFreeFallCharacteristic => {
                 if let hci::Event::CommandComplete(cmd) = event {
                     if let hci::event::command::ReturnParameters::Vendor(
-                        bluenrg::event::command::ReturnParameters::GattAddCharacteristic(_),
+                        bluenrg::event::command::ReturnParameters::GattAddCharacteristic(p),
                     ) = cmd.return_params
                     {
+                        must_succeed(&p.status);
                         return State::AddAccCharacteristic;
                     }
                 }
@@ -622,9 +699,10 @@ impl State {
             &State::AddAccCharacteristic => {
                 if let hci::Event::CommandComplete(cmd) = event {
                     if let hci::event::command::ReturnParameters::Vendor(
-                        bluenrg::event::command::ReturnParameters::GattAddCharacteristic(_),
+                        bluenrg::event::command::ReturnParameters::GattAddCharacteristic(p),
                     ) = cmd.return_params
                     {
+                        must_succeed(&p.status);
                         return State::AddEnvironmentalSensorService;
                     }
                 }
@@ -635,6 +713,7 @@ impl State {
                         bluenrg::event::command::ReturnParameters::GattAddService(params),
                     ) = cmd.return_params
                     {
+                        must_succeed(&params.status);
                         ps.environmental_sensor_service_handle = Some(params.service_handle);
                         return State::AddTemperatureCharacteristic;
                     }
@@ -646,6 +725,7 @@ impl State {
                         bluenrg::event::command::ReturnParameters::GattAddCharacteristic(params),
                     ) = cmd.return_params
                     {
+                        must_succeed(&params.status);
                         ps.temperature_characteristic_handle = Some(params.characteristic_handle);
                         return State::AddTemperatureCharacteristicDescriptor;
                     }
@@ -655,10 +735,11 @@ impl State {
                 if let hci::Event::CommandComplete(cmd) = event {
                     if let hci::event::command::ReturnParameters::Vendor(
                         bluenrg::event::command::ReturnParameters::GattAddCharacteristicDescriptor(
-                            _,
+                            p,
                         ),
                     ) = cmd.return_params
                     {
+                        must_succeed(&p.status);
                         return State::AddPressureCharacteristic;
                     }
                 }
@@ -669,6 +750,7 @@ impl State {
                         bluenrg::event::command::ReturnParameters::GattAddCharacteristic(params),
                     ) = cmd.return_params
                     {
+                        must_succeed(&params.status);
                         ps.pressure_characteristic_handle = Some(params.characteristic_handle);
                         return State::AddPressureCharacteristicDescriptor;
                     }
@@ -678,10 +760,11 @@ impl State {
                 if let hci::Event::CommandComplete(cmd) = event {
                     if let hci::event::command::ReturnParameters::Vendor(
                         bluenrg::event::command::ReturnParameters::GattAddCharacteristicDescriptor(
-                            _,
+                            p,
                         ),
                     ) = cmd.return_params
                     {
+                        must_succeed(&p.status);
                         return State::AddHumidityCharacteristic;
                     }
                 }
@@ -692,6 +775,7 @@ impl State {
                         bluenrg::event::command::ReturnParameters::GattAddCharacteristic(params),
                     ) = cmd.return_params
                     {
+                        must_succeed(&params.status);
                         ps.humidity_characteristic_handle = Some(params.characteristic_handle);
                         return State::AddHumidityCharacteristicDescriptor;
                     }
@@ -701,10 +785,11 @@ impl State {
                 if let hci::Event::CommandComplete(cmd) = event {
                     if let hci::event::command::ReturnParameters::Vendor(
                         bluenrg::event::command::ReturnParameters::GattAddCharacteristicDescriptor(
-                            _,
+                            p,
                         ),
                     ) = cmd.return_params
                     {
+                        must_succeed(&p.status);
                         return State::AddTimeService;
                     }
                 }
@@ -715,6 +800,7 @@ impl State {
                         bluenrg::event::command::ReturnParameters::GattAddService(params),
                     ) = cmd.return_params
                     {
+                        must_succeed(&params.status);
                         ps.time_service_handle = Some(params.service_handle);
                         return State::AddTimeCharacteristic;
                     }
@@ -723,9 +809,10 @@ impl State {
             &State::AddTimeCharacteristic => {
                 if let hci::Event::CommandComplete(cmd) = event {
                     if let hci::event::command::ReturnParameters::Vendor(
-                        bluenrg::event::command::ReturnParameters::GattAddCharacteristic(_),
+                        bluenrg::event::command::ReturnParameters::GattAddCharacteristic(p),
                     ) = cmd.return_params
                     {
+                        must_succeed(&p.status);
                         return State::AddMinuteCharacteristic;
                     }
                 }
@@ -733,9 +820,10 @@ impl State {
             &State::AddMinuteCharacteristic => {
                 if let hci::Event::CommandComplete(cmd) = event {
                     if let hci::event::command::ReturnParameters::Vendor(
-                        bluenrg::event::command::ReturnParameters::GattAddCharacteristic(_),
+                        bluenrg::event::command::ReturnParameters::GattAddCharacteristic(p),
                     ) = cmd.return_params
                     {
+                        must_succeed(&p.status);
                         return State::AddLedService;
                     }
                 }
@@ -746,6 +834,7 @@ impl State {
                         bluenrg::event::command::ReturnParameters::GattAddService(params),
                     ) = cmd.return_params
                     {
+                        must_succeed(&params.status);
                         ps.led_service_handle = Some(params.service_handle);
                         return State::AddLedCharacteristic;
                     }
@@ -754,9 +843,10 @@ impl State {
             &State::AddLedCharacteristic => {
                 if let hci::Event::CommandComplete(cmd) = event {
                     if let hci::event::command::ReturnParameters::Vendor(
-                        bluenrg::event::command::ReturnParameters::GattAddCharacteristic(_),
+                        bluenrg::event::command::ReturnParameters::GattAddCharacteristic(p),
                     ) = cmd.return_params
                     {
+                        must_succeed(&p.status);
                         return State::SetTxPowerLevel;
                     }
                 }
@@ -764,9 +854,10 @@ impl State {
             &State::SetTxPowerLevel => {
                 if let hci::Event::CommandComplete(cmd) = event {
                     if let hci::event::command::ReturnParameters::Vendor(
-                        bluenrg::event::command::ReturnParameters::HalSetTxPowerLevel(_),
+                        bluenrg::event::command::ReturnParameters::HalSetTxPowerLevel(s),
                     ) = cmd.return_params
                     {
+                        must_succeed(&s);
                         return State::Complete;
                     }
                 }
