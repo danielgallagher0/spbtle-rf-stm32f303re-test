@@ -15,8 +15,8 @@ debug = true
 panic-semihosting = "*"
 cortex-m-semihosting = "*"
 embedded-hal = "*"
-bluenrg = { git = "https://github.com/danielgallagher0/bluenrg" }
-bluetooth-hci = { git = "https://github.com/danielgallagher0/bluetooth-hci" }
+bluenrg = "*"
+bluetooth-hci = "*"
 nb = "*"
 
 [dependencies.cortex-m]
