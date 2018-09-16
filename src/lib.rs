@@ -77,7 +77,7 @@ macro_rules! must {
     };
 }
 
-fn must_succeed(s: &hci::Status) {
+fn must_succeed<V>(s: &hci::Status<V>) {
     match s {
         &hci::Status::Success => (),
         _ => loop {
@@ -233,6 +233,8 @@ enum State {
     AddLedService,
     AddLedCharacteristic,
     SetTxPowerLevel,
+    SetEmptyScanResponse,
+    SetDiscoverable,
     Complete,
 }
 
@@ -570,6 +572,20 @@ impl State {
             &State::SetTxPowerLevel => ps.bnrg.with_spi(&mut ps.spi, |c| {
                 block!(c.set_tx_power_level(bluenrg::hal::PowerLevel::DbmNeg2_1));
             }),
+            &State::SetEmptyScanResponse => ps.bnrg.with_spi(&mut ps.spi, |c| {
+                block!(c.le_set_scan_response_data(&[]));
+            }),
+            &State::SetDiscoverable => ps.bnrg.with_spi(&mut ps.spi, |c| {
+                block!(c.set_discoverable(&bluenrg::gap::DiscoverableParameters {
+                    advertising_type: bluenrg::gap::AdvertisingType::ConnectableUndirected,
+                    advertising_interval: None,
+                    address_type: bluenrg::gap::OwnAddressType::Public,
+                    filter_policy: bluenrg::gap::AdvertisingFilterPolicy::AllowConnectionAndScan,
+                    local_name: Some(bluenrg::gap::LocalName::Complete(b"BlueNRG")),
+                    advertising_data: &[],
+                    conn_interval: (None, None),
+                }));
+            }),
             &State::Complete => {
                 cortex_m::asm::wfi();
             }
@@ -855,6 +871,27 @@ impl State {
                 if let hci::Event::CommandComplete(cmd) = event {
                     if let hci::event::command::ReturnParameters::Vendor(
                         bluenrg::event::command::ReturnParameters::HalSetTxPowerLevel(s),
+                    ) = cmd.return_params
+                    {
+                        must_succeed(&s);
+                        return State::SetEmptyScanResponse;
+                    }
+                }
+            }
+            &State::SetEmptyScanResponse => {
+                if let hci::Event::CommandComplete(cmd) = event {
+                    if let hci::event::command::ReturnParameters::LeSetScanResponseData(s) =
+                        cmd.return_params
+                    {
+                        must_succeed(&s);
+                        return State::SetDiscoverable;
+                    }
+                }
+            }
+            &State::SetDiscoverable => {
+                if let hci::Event::CommandComplete(cmd) = event {
+                    if let hci::event::command::ReturnParameters::Vendor(
+                        bluenrg::event::command::ReturnParameters::GapSetDiscoverable(s),
                     ) = cmd.return_params
                     {
                         must_succeed(&s);
