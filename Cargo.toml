@@ -27,7 +27,7 @@ features = ["cm7-r0p1"]
 version= "*"
 
 [dependencies.stm32f30x]
-version = "*"
+version = "0.7.1"
 features = ["rt"]
 
 [dependencies.stm32f30x-hal]
@@ -39,3 +39,5 @@ features = ["rt", "unproven"]
 # enabled in the HAL.
 [patch.crates-io]
 stm32f30x-hal = { git = "https://github.com/danielgallagher0/stm32f30x-hal", branch = "spbtle-rf-support" }
+bluetooth-hci = { git = "https://github.com/danielgallagher0/bluetooth-hci", branch = "master" }
+bluenrg = { git = "https://github.com/danielgallagher0/bluenrg", branch = "master" }

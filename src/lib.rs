@@ -93,7 +93,8 @@ fn print_event<Out: Write>(out: &mut Out, event: hci::Event<bluenrg::event::Blue
                 out,
                 "Command complete; space left for {} packets",
                 cmd.num_hci_command_packets
-            ).unwrap();
+            )
+            .unwrap();
             match cmd.return_params {
                 hci::event::command::ReturnParameters::ReadLocalVersionInformation(v) => {
                     writeln!(out, "  hci_version = {}", v.hci_version).unwrap();
@@ -108,7 +109,8 @@ fn print_event<Out: Write>(out: &mut Out, event: hci::Event<bluenrg::event::Blue
                         out,
                         "  FW Version = {}.{}.{}",
                         bnrg.major, bnrg.minor, bnrg.patch
-                    ).unwrap();
+                    )
+                    .unwrap();
                 }
                 // _p => writeln!(out, "other command complete").unwrap(),
                 p => writeln!(out, "{:?}", p).unwrap(),
@@ -253,7 +255,8 @@ impl State {
                 ps.bnrg.with_spi(&mut ps.spi, |c| {
                     let config = bluenrg::hal::ConfigData::public_address(hci::BdAddr([
                         0x12, 0x34, 0x00, 0xE1, 0x80, 0x02,
-                    ])).build();
+                    ]))
+                    .build();
                     block!(c.write_config_data(&config)).unwrap()
                 });
             }
@@ -266,21 +269,24 @@ impl State {
                     bluenrg::gap::Role::PERIPHERAL,
                     false,
                     7,
-                )).unwrap();
+                ))
+                .unwrap();
             }),
             &State::SetDeviceName => {
                 let service = ps.gap_service_handle.unwrap();
                 let characteristic = ps.dev_name_handle.unwrap();
-                ps.bnrg.with_spi(&mut ps.spi, |c| {
-                    block!(c.update_characteristic_value(
-                        &bluenrg::gatt::UpdateCharacteristicValueParameters {
-                            service_handle: service,
-                            characteristic_handle: characteristic,
-                            offset: 0,
-                            value: b"BlueNRG",
-                        }
-                    ));
-                })
+                ps.bnrg
+                    .with_spi(&mut ps.spi, |c| {
+                        block!(c.update_characteristic_value(
+                            &bluenrg::gatt::UpdateCharacteristicValueParameters {
+                                service_handle: service,
+                                characteristic_handle: characteristic,
+                                offset: 0,
+                                value: b"BlueNRG",
+                            }
+                        ))
+                    })
+                    .unwrap()
             }
             &State::SetAuthenticationRequirement => ps.bnrg.with_spi(&mut ps.spi, |c| {
                 block!(c.set_authentication_requirement(
@@ -291,266 +297,305 @@ impl State {
                         fixed_pin: bluenrg::gap::Pin::Fixed(123456),
                         bonding_required: true,
                     }
-                ));
+                ))
+                .unwrap();
             }),
             &State::AddAccService => ps.bnrg.with_spi(&mut ps.spi, |c| {
                 block!(c.add_service(&bluenrg::gatt::AddServiceParameters {
                     uuid: ACC_SERVICE_UUID,
                     service_type: bluenrg::gatt::ServiceType::Primary,
                     max_attribute_records: 7,
-                }));
+                }))
+                .unwrap();
             }),
             &State::AddAccFreeFallCharacteristic => {
                 let acc_service_handle = ps.acc_service_handle.unwrap();
                 let fw_version = ps.fw_version.clone().unwrap();
-                ps.bnrg.with_spi(&mut ps.spi, |c| {
-                    block!(
-                        c.add_characteristic(&bluenrg::gatt::AddCharacteristicParameters {
-                            service_handle: acc_service_handle,
-                            characteristic_uuid: ACC_FREE_FALL_UUID,
-                            characteristic_value_len: 1,
-                            characteristic_properties:
-                                bluenrg::gatt::CharacteristicProperty::NOTIFY,
-                            security_permissions: bluenrg::gatt::CharacteristicPermission::empty(),
-                            gatt_event_mask: bluenrg::gatt::CharacteristicEvent::empty(),
-                            encryption_key_size: must!(
-                                bluenrg::gatt::EncryptionKeySize::with_value(16)
-                            ),
-                            is_variable: false,
-                            fw_version_before_v72: fw_version.major < 7
-                                || (fw_version.major == 7 && fw_version.minor < 2)
-                        })
-                    );
-                });
+                ps.bnrg
+                    .with_spi(&mut ps.spi, |c| {
+                        block!(
+                            c.add_characteristic(&bluenrg::gatt::AddCharacteristicParameters {
+                                service_handle: acc_service_handle,
+                                characteristic_uuid: ACC_FREE_FALL_UUID,
+                                characteristic_value_len: 1,
+                                characteristic_properties:
+                                    bluenrg::gatt::CharacteristicProperty::NOTIFY,
+                                security_permissions:
+                                    bluenrg::gatt::CharacteristicPermission::empty(),
+                                gatt_event_mask: bluenrg::gatt::CharacteristicEvent::empty(),
+                                encryption_key_size: must!(
+                                    bluenrg::gatt::EncryptionKeySize::with_value(16)
+                                ),
+                                is_variable: false,
+                                fw_version_before_v72: fw_version.major < 7
+                                    || (fw_version.major == 7 && fw_version.minor < 2)
+                            })
+                        )
+                    })
+                    .unwrap();
             }
             &State::AddAccCharacteristic => {
                 let acc_service_handle = ps.acc_service_handle.unwrap();
                 let fw_version = ps.fw_version.clone().unwrap();
-                ps.bnrg.with_spi(&mut ps.spi, |c| {
-                    block!(
-                        c.add_characteristic(&bluenrg::gatt::AddCharacteristicParameters {
-                            service_handle: acc_service_handle,
-                            characteristic_uuid: ACC_UUID,
-                            characteristic_value_len: 6,
-                            characteristic_properties: bluenrg::gatt::CharacteristicProperty::NOTIFY
-                                | bluenrg::gatt::CharacteristicProperty::READ,
-                            security_permissions: bluenrg::gatt::CharacteristicPermission::empty(),
-                            gatt_event_mask: bluenrg::gatt::CharacteristicEvent::CONFIRM_READ,
-                            encryption_key_size: must!(
-                                bluenrg::gatt::EncryptionKeySize::with_value(16)
-                            ),
-                            is_variable: false,
-                            fw_version_before_v72: fw_version.major < 7
-                                || (fw_version.major == 7 && fw_version.minor < 2)
-                        })
-                    );
-                });
+                ps.bnrg
+                    .with_spi(&mut ps.spi, |c| {
+                        block!(
+                            c.add_characteristic(&bluenrg::gatt::AddCharacteristicParameters {
+                                service_handle: acc_service_handle,
+                                characteristic_uuid: ACC_UUID,
+                                characteristic_value_len: 6,
+                                characteristic_properties:
+                                    bluenrg::gatt::CharacteristicProperty::NOTIFY
+                                        | bluenrg::gatt::CharacteristicProperty::READ,
+                                security_permissions:
+                                    bluenrg::gatt::CharacteristicPermission::empty(),
+                                gatt_event_mask: bluenrg::gatt::CharacteristicEvent::CONFIRM_READ,
+                                encryption_key_size: must!(
+                                    bluenrg::gatt::EncryptionKeySize::with_value(16)
+                                ),
+                                is_variable: false,
+                                fw_version_before_v72: fw_version.major < 7
+                                    || (fw_version.major == 7 && fw_version.minor < 2)
+                            })
+                        )
+                    })
+                    .unwrap();
             }
             &State::AddEnvironmentalSensorService => ps.bnrg.with_spi(&mut ps.spi, |c| {
                 block!(c.add_service(&bluenrg::gatt::AddServiceParameters {
                     uuid: ENVIRONMENTAL_SENSOR_SERVICE_UUID,
                     service_type: bluenrg::gatt::ServiceType::Primary,
                     max_attribute_records: 10,
-                }));
+                }))
+                .unwrap();
             }),
             &State::AddTemperatureCharacteristic => {
                 let env_service_handle = ps.environmental_sensor_service_handle.unwrap();
                 let fw_version = ps.fw_version.clone().unwrap();
-                ps.bnrg.with_spi(&mut ps.spi, |c| {
-                    block!(
-                        c.add_characteristic(&bluenrg::gatt::AddCharacteristicParameters {
-                            service_handle: env_service_handle,
-                            characteristic_uuid: TEMPERATURE_CHARACTERISTIC_UUID,
-                            characteristic_value_len: 2,
-                            characteristic_properties: bluenrg::gatt::CharacteristicProperty::READ,
-                            security_permissions: bluenrg::gatt::CharacteristicPermission::empty(),
-                            gatt_event_mask: bluenrg::gatt::CharacteristicEvent::CONFIRM_READ,
-                            encryption_key_size: must!(
-                                bluenrg::gatt::EncryptionKeySize::with_value(16)
-                            ),
-                            is_variable: false,
-                            fw_version_before_v72: fw_version.major < 7
-                                || (fw_version.major == 7 && fw_version.minor < 2)
-                        })
-                    );
-                });
+                ps.bnrg
+                    .with_spi(&mut ps.spi, |c| {
+                        block!(
+                            c.add_characteristic(&bluenrg::gatt::AddCharacteristicParameters {
+                                service_handle: env_service_handle,
+                                characteristic_uuid: TEMPERATURE_CHARACTERISTIC_UUID,
+                                characteristic_value_len: 2,
+                                characteristic_properties:
+                                    bluenrg::gatt::CharacteristicProperty::READ,
+                                security_permissions:
+                                    bluenrg::gatt::CharacteristicPermission::empty(),
+                                gatt_event_mask: bluenrg::gatt::CharacteristicEvent::CONFIRM_READ,
+                                encryption_key_size: must!(
+                                    bluenrg::gatt::EncryptionKeySize::with_value(16)
+                                ),
+                                is_variable: false,
+                                fw_version_before_v72: fw_version.major < 7
+                                    || (fw_version.major == 7 && fw_version.minor < 2)
+                            })
+                        )
+                    })
+                    .unwrap();
             }
             &State::AddTemperatureCharacteristicDescriptor => {
                 let env_service_handle = ps.environmental_sensor_service_handle.unwrap();
                 let temperature_characteristic_handle =
                     ps.temperature_characteristic_handle.unwrap();
-                ps.bnrg.with_spi(&mut ps.spi, |c| {
-                    block!(c.add_characteristic_descriptor(
-                        &bluenrg::gatt::AddDescriptorParameters {
-                            service_handle: env_service_handle,
-                            characteristic_handle: temperature_characteristic_handle,
-                            descriptor_uuid: TEMPERATURE_DESCRIPTOR_UUID,
-                            descriptor_value_max_len: 7,
-                            descriptor_value: &[0x0E, 0xFF, 0x2F, 0x27, 0, 0, 0],
-                            security_permissions: bluenrg::gatt::DescriptorPermission::empty(),
-                            access_permissions: bluenrg::gatt::AccessPermission::READ,
-                            gatt_event_mask: bluenrg::gatt::CharacteristicEvent::empty(),
-                            encryption_key_size: must!(
-                                bluenrg::gatt::EncryptionKeySize::with_value(16)
-                            ),
-                            is_variable: false,
-                        }
-                    ));
-                });
+                ps.bnrg
+                    .with_spi(&mut ps.spi, |c| {
+                        block!(c.add_characteristic_descriptor(
+                            &bluenrg::gatt::AddDescriptorParameters {
+                                service_handle: env_service_handle,
+                                characteristic_handle: temperature_characteristic_handle,
+                                descriptor_uuid: TEMPERATURE_DESCRIPTOR_UUID,
+                                descriptor_value_max_len: 7,
+                                descriptor_value: &[0x0E, 0xFF, 0x2F, 0x27, 0, 0, 0],
+                                security_permissions: bluenrg::gatt::DescriptorPermission::empty(),
+                                access_permissions: bluenrg::gatt::AccessPermission::READ,
+                                gatt_event_mask: bluenrg::gatt::CharacteristicEvent::empty(),
+                                encryption_key_size: must!(
+                                    bluenrg::gatt::EncryptionKeySize::with_value(16)
+                                ),
+                                is_variable: false,
+                            }
+                        ))
+                    })
+                    .unwrap();
             }
             &State::AddPressureCharacteristic => {
                 let env_service_handle = ps.environmental_sensor_service_handle.unwrap();
                 let fw_version = ps.fw_version.clone().unwrap();
-                ps.bnrg.with_spi(&mut ps.spi, |c| {
-                    block!(
-                        c.add_characteristic(&bluenrg::gatt::AddCharacteristicParameters {
-                            service_handle: env_service_handle,
-                            characteristic_uuid: PRESSURE_CHARACTERISTIC_UUID,
-                            characteristic_value_len: 3,
-                            characteristic_properties: bluenrg::gatt::CharacteristicProperty::READ,
-                            security_permissions: bluenrg::gatt::CharacteristicPermission::empty(),
-                            gatt_event_mask: bluenrg::gatt::CharacteristicEvent::CONFIRM_READ,
-                            encryption_key_size: must!(
-                                bluenrg::gatt::EncryptionKeySize::with_value(16)
-                            ),
-                            is_variable: false,
-                            fw_version_before_v72: fw_version.major < 7
-                                || (fw_version.major == 7 && fw_version.minor < 2)
-                        })
-                    );
-                });
+                ps.bnrg
+                    .with_spi(&mut ps.spi, |c| {
+                        block!(
+                            c.add_characteristic(&bluenrg::gatt::AddCharacteristicParameters {
+                                service_handle: env_service_handle,
+                                characteristic_uuid: PRESSURE_CHARACTERISTIC_UUID,
+                                characteristic_value_len: 3,
+                                characteristic_properties:
+                                    bluenrg::gatt::CharacteristicProperty::READ,
+                                security_permissions:
+                                    bluenrg::gatt::CharacteristicPermission::empty(),
+                                gatt_event_mask: bluenrg::gatt::CharacteristicEvent::CONFIRM_READ,
+                                encryption_key_size: must!(
+                                    bluenrg::gatt::EncryptionKeySize::with_value(16)
+                                ),
+                                is_variable: false,
+                                fw_version_before_v72: fw_version.major < 7
+                                    || (fw_version.major == 7 && fw_version.minor < 2)
+                            })
+                        )
+                    })
+                    .unwrap();
             }
             &State::AddPressureCharacteristicDescriptor => {
                 let env_service_handle = ps.environmental_sensor_service_handle.unwrap();
                 let pressure_characteristic_handle = ps.pressure_characteristic_handle.unwrap();
-                ps.bnrg.with_spi(&mut ps.spi, |c| {
-                    block!(c.add_characteristic_descriptor(
-                        &bluenrg::gatt::AddDescriptorParameters {
-                            service_handle: env_service_handle,
-                            characteristic_handle: pressure_characteristic_handle,
-                            descriptor_uuid: PRESSURE_DESCRIPTOR_UUID,
-                            descriptor_value_max_len: 7,
-                            descriptor_value: &[0x0F, 0xFB, 0x80, 0x27, 0, 0, 0],
-                            security_permissions: bluenrg::gatt::DescriptorPermission::empty(),
-                            access_permissions: bluenrg::gatt::AccessPermission::READ,
-                            gatt_event_mask: bluenrg::gatt::CharacteristicEvent::empty(),
-                            encryption_key_size: must!(
-                                bluenrg::gatt::EncryptionKeySize::with_value(16)
-                            ),
-                            is_variable: false,
-                        }
-                    ));
-                });
+                ps.bnrg
+                    .with_spi(&mut ps.spi, |c| {
+                        block!(c.add_characteristic_descriptor(
+                            &bluenrg::gatt::AddDescriptorParameters {
+                                service_handle: env_service_handle,
+                                characteristic_handle: pressure_characteristic_handle,
+                                descriptor_uuid: PRESSURE_DESCRIPTOR_UUID,
+                                descriptor_value_max_len: 7,
+                                descriptor_value: &[0x0F, 0xFB, 0x80, 0x27, 0, 0, 0],
+                                security_permissions: bluenrg::gatt::DescriptorPermission::empty(),
+                                access_permissions: bluenrg::gatt::AccessPermission::READ,
+                                gatt_event_mask: bluenrg::gatt::CharacteristicEvent::empty(),
+                                encryption_key_size: must!(
+                                    bluenrg::gatt::EncryptionKeySize::with_value(16)
+                                ),
+                                is_variable: false,
+                            }
+                        ))
+                    })
+                    .unwrap();
             }
             &State::AddHumidityCharacteristic => {
                 let environmental_sensor_service_handle =
                     ps.environmental_sensor_service_handle.unwrap();
                 let fw_version = ps.fw_version.clone().unwrap();
-                ps.bnrg.with_spi(&mut ps.spi, |c| {
-                    block!(
-                        c.add_characteristic(&bluenrg::gatt::AddCharacteristicParameters {
-                            service_handle: environmental_sensor_service_handle,
-                            characteristic_uuid: HUMIDITY_CHARACTERISTIC_UUID,
-                            characteristic_value_len: 2,
-                            characteristic_properties: bluenrg::gatt::CharacteristicProperty::READ,
-                            security_permissions: bluenrg::gatt::CharacteristicPermission::empty(),
-                            gatt_event_mask: bluenrg::gatt::CharacteristicEvent::CONFIRM_READ,
-                            encryption_key_size: must!(
-                                bluenrg::gatt::EncryptionKeySize::with_value(16)
-                            ),
-                            is_variable: false,
-                            fw_version_before_v72: fw_version.major < 7
-                                || (fw_version.major == 7 && fw_version.minor < 2)
-                        })
-                    );
-                });
+                ps.bnrg
+                    .with_spi(&mut ps.spi, |c| {
+                        block!(
+                            c.add_characteristic(&bluenrg::gatt::AddCharacteristicParameters {
+                                service_handle: environmental_sensor_service_handle,
+                                characteristic_uuid: HUMIDITY_CHARACTERISTIC_UUID,
+                                characteristic_value_len: 2,
+                                characteristic_properties:
+                                    bluenrg::gatt::CharacteristicProperty::READ,
+                                security_permissions:
+                                    bluenrg::gatt::CharacteristicPermission::empty(),
+                                gatt_event_mask: bluenrg::gatt::CharacteristicEvent::CONFIRM_READ,
+                                encryption_key_size: must!(
+                                    bluenrg::gatt::EncryptionKeySize::with_value(16)
+                                ),
+                                is_variable: false,
+                                fw_version_before_v72: fw_version.major < 7
+                                    || (fw_version.major == 7 && fw_version.minor < 2)
+                            })
+                        )
+                    })
+                    .unwrap();
             }
             &State::AddHumidityCharacteristicDescriptor => {
                 let env_service_handle = ps.environmental_sensor_service_handle.unwrap();
                 let humidity_characteristic_handle = ps.humidity_characteristic_handle.unwrap();
-                ps.bnrg.with_spi(&mut ps.spi, |c| {
-                    block!(c.add_characteristic_descriptor(
-                        &bluenrg::gatt::AddDescriptorParameters {
-                            service_handle: env_service_handle,
-                            characteristic_handle: humidity_characteristic_handle,
-                            descriptor_uuid: HUMIDITY_DESCRIPTOR_UUID,
-                            descriptor_value_max_len: 7,
-                            descriptor_value: &[0x06, 0xFF, 0x00, 0x27, 0, 0, 0],
-                            security_permissions: bluenrg::gatt::DescriptorPermission::empty(),
-                            access_permissions: bluenrg::gatt::AccessPermission::READ,
-                            gatt_event_mask: bluenrg::gatt::CharacteristicEvent::empty(),
-                            encryption_key_size: must!(
-                                bluenrg::gatt::EncryptionKeySize::with_value(16)
-                            ),
-                            is_variable: false,
-                        }
-                    ));
-                });
+                ps.bnrg
+                    .with_spi(&mut ps.spi, |c| {
+                        block!(c.add_characteristic_descriptor(
+                            &bluenrg::gatt::AddDescriptorParameters {
+                                service_handle: env_service_handle,
+                                characteristic_handle: humidity_characteristic_handle,
+                                descriptor_uuid: HUMIDITY_DESCRIPTOR_UUID,
+                                descriptor_value_max_len: 7,
+                                descriptor_value: &[0x06, 0xFF, 0x00, 0x27, 0, 0, 0],
+                                security_permissions: bluenrg::gatt::DescriptorPermission::empty(),
+                                access_permissions: bluenrg::gatt::AccessPermission::READ,
+                                gatt_event_mask: bluenrg::gatt::CharacteristicEvent::empty(),
+                                encryption_key_size: must!(
+                                    bluenrg::gatt::EncryptionKeySize::with_value(16)
+                                ),
+                                is_variable: false,
+                            }
+                        ))
+                    })
+                    .unwrap();
             }
             &State::AddTimeService => ps.bnrg.with_spi(&mut ps.spi, |c| {
                 block!(c.add_service(&bluenrg::gatt::AddServiceParameters {
                     uuid: TIME_SERVICE_UUID,
                     service_type: bluenrg::gatt::ServiceType::Primary,
                     max_attribute_records: 7,
-                }));
+                }))
+                .unwrap();
             }),
             &State::AddTimeCharacteristic => {
                 let time_service_handle = ps.time_service_handle.unwrap();
                 let fw_version = ps.fw_version.clone().unwrap();
-                ps.bnrg.with_spi(&mut ps.spi, |c| {
-                    block!(
-                        c.add_characteristic(&bluenrg::gatt::AddCharacteristicParameters {
-                            service_handle: time_service_handle,
-                            characteristic_uuid: TIME_CHARACTERISTIC_UUID,
-                            characteristic_value_len: 4,
-                            characteristic_properties: bluenrg::gatt::CharacteristicProperty::READ,
-                            security_permissions: bluenrg::gatt::CharacteristicPermission::empty(),
-                            gatt_event_mask: bluenrg::gatt::CharacteristicEvent::empty(),
-                            encryption_key_size: must!(
-                                bluenrg::gatt::EncryptionKeySize::with_value(16)
-                            ),
-                            is_variable: false,
-                            fw_version_before_v72: fw_version.major < 7
-                                || (fw_version.major == 7 && fw_version.minor < 2)
-                        })
-                    );
-                });
+                ps.bnrg
+                    .with_spi(&mut ps.spi, |c| {
+                        block!(
+                            c.add_characteristic(&bluenrg::gatt::AddCharacteristicParameters {
+                                service_handle: time_service_handle,
+                                characteristic_uuid: TIME_CHARACTERISTIC_UUID,
+                                characteristic_value_len: 4,
+                                characteristic_properties:
+                                    bluenrg::gatt::CharacteristicProperty::READ,
+                                security_permissions:
+                                    bluenrg::gatt::CharacteristicPermission::empty(),
+                                gatt_event_mask: bluenrg::gatt::CharacteristicEvent::empty(),
+                                encryption_key_size: must!(
+                                    bluenrg::gatt::EncryptionKeySize::with_value(16)
+                                ),
+                                is_variable: false,
+                                fw_version_before_v72: fw_version.major < 7
+                                    || (fw_version.major == 7 && fw_version.minor < 2)
+                            })
+                        )
+                    })
+                    .unwrap();
             }
             &State::AddMinuteCharacteristic => {
                 let time_service_handle = ps.time_service_handle.unwrap();
                 let fw_version = ps.fw_version.clone().unwrap();
-                ps.bnrg.with_spi(&mut ps.spi, |c| {
-                    block!(
-                        c.add_characteristic(&bluenrg::gatt::AddCharacteristicParameters {
-                            service_handle: time_service_handle,
-                            characteristic_uuid: MINUTE_CHARACTERISTIC_UUID,
-                            characteristic_value_len: 4,
-                            characteristic_properties: bluenrg::gatt::CharacteristicProperty::READ
-                                | bluenrg::gatt::CharacteristicProperty::NOTIFY,
-                            security_permissions: bluenrg::gatt::CharacteristicPermission::empty(),
-                            gatt_event_mask: bluenrg::gatt::CharacteristicEvent::CONFIRM_READ,
-                            encryption_key_size: must!(
-                                bluenrg::gatt::EncryptionKeySize::with_value(16)
-                            ),
-                            is_variable: true,
-                            fw_version_before_v72: fw_version.major < 7
-                                || (fw_version.major == 7 && fw_version.minor < 2)
-                        })
-                    );
-                });
+                ps.bnrg
+                    .with_spi(&mut ps.spi, |c| {
+                        block!(
+                            c.add_characteristic(&bluenrg::gatt::AddCharacteristicParameters {
+                                service_handle: time_service_handle,
+                                characteristic_uuid: MINUTE_CHARACTERISTIC_UUID,
+                                characteristic_value_len: 4,
+                                characteristic_properties:
+                                    bluenrg::gatt::CharacteristicProperty::READ
+                                        | bluenrg::gatt::CharacteristicProperty::NOTIFY,
+                                security_permissions:
+                                    bluenrg::gatt::CharacteristicPermission::empty(),
+                                gatt_event_mask: bluenrg::gatt::CharacteristicEvent::CONFIRM_READ,
+                                encryption_key_size: must!(
+                                    bluenrg::gatt::EncryptionKeySize::with_value(16)
+                                ),
+                                is_variable: true,
+                                fw_version_before_v72: fw_version.major < 7
+                                    || (fw_version.major == 7 && fw_version.minor < 2)
+                            })
+                        )
+                    })
+                    .unwrap();
             }
             &State::AddLedService => ps.bnrg.with_spi(&mut ps.spi, |c| {
                 block!(c.add_service(&bluenrg::gatt::AddServiceParameters {
                     uuid: LED_SERVICE_UUID,
                     service_type: bluenrg::gatt::ServiceType::Primary,
                     max_attribute_records: 7,
-                }));
+                }))
+                .unwrap();
             }),
             &State::AddLedCharacteristic => {
                 let led_service_handle = ps.led_service_handle.unwrap();
                 let fw_version = ps.fw_version.clone().unwrap();
-                ps.bnrg.with_spi(&mut ps.spi, |c| {
-                    block!(
+                ps.bnrg
+                    .with_spi(&mut ps.spi, |c| {
+                        block!(
                         c.add_characteristic(&bluenrg::gatt::AddCharacteristicParameters {
                             service_handle: led_service_handle,
                             characteristic_uuid: LED_CHARACTERISTIC_UUID,
@@ -566,14 +611,15 @@ impl State {
                             fw_version_before_v72: fw_version.major < 7
                                 || (fw_version.major == 7 && fw_version.minor < 2)
                         })
-                    );
-                });
+                    )
+                    })
+                    .unwrap();
             }
             &State::SetTxPowerLevel => ps.bnrg.with_spi(&mut ps.spi, |c| {
-                block!(c.set_tx_power_level(bluenrg::hal::PowerLevel::DbmNeg2_1));
+                block!(c.set_tx_power_level(bluenrg::hal::PowerLevel::DbmNeg2_1)).unwrap();
             }),
             &State::SetEmptyScanResponse => ps.bnrg.with_spi(&mut ps.spi, |c| {
-                block!(c.le_set_scan_response_data(&[]));
+                block!(c.le_set_scan_response_data(&[])).unwrap();
             }),
             &State::SetDiscoverable => ps.bnrg.with_spi(&mut ps.spi, |c| {
                 block!(c.set_discoverable(&bluenrg::gap::DiscoverableParameters {
@@ -584,7 +630,8 @@ impl State {
                     local_name: Some(bluenrg::gap::LocalName::Complete(b"BlueNRG")),
                     advertising_data: &[],
                     conn_interval: (None, None),
-                }));
+                }))
+                .unwrap();
             }),
             &State::Complete => {
                 cortex_m::asm::wfi();
